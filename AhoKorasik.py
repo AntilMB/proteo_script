@@ -73,6 +73,7 @@ def pooled_func(arg):
 		#print(out)
 		print('\t'.join([patterns, str(pos), fasta, prot]), file=file)
 
+	
 	def read_fastaK(files):
 		x = open(files)
 		key = None
@@ -91,7 +92,22 @@ def pooled_func(arg):
 		out[key] = seq
 		return(out)
 
-	patterns = [value for _, value in read_fastaK(in_fasta).iteritems()]
+	
+	def replace_I_to_L(fasta):
+		replaced = {}
+		for key, value in fasta.iteritems():
+			replaced[value] = [m.start() for m in re.finditer('I', value)]
+			fasta[key] = value.replace('I', 'L')
+		return replaced, fasta
+
+
+
+
+	fasta_loaded = read_fastaK(in_fasta)
+	replaced, fasta_loaded = replace_I_to_L(fasta_loaded)
+	print(replaced, fasta_loaded)
+
+	patterns = [value for _, value in fasta_loaded.iteritems()]
 	root = aho_create_statemachine(patterns)	
 
 	with open(out_dir + '/' + basename(fasta) + 'result.txt', 'w') as f:
@@ -100,7 +116,7 @@ def pooled_func(arg):
 			for key, value in fasta_ref.iteritems():
 				aho_find_all(value, root, on_occurence, f, key, basename(fasta))
 
-	return 1
+	return replaced
 
 
 def make_ref(file_in, file_out):
@@ -129,16 +145,16 @@ def make_ref(file_in, file_out):
 			count += 1
 			print(line, file=out)
 		else:
-			print(line.upper(), file=out)
+			print(line.upper().replace('I', 'L'), file=out)
 
 	out.close()
 	f.close()
 
 
-def concat_res(out_dir):
+def concat_res(out_dir, replaced):
 	only_txt = sorted([out_dir + '/' + f for f in listdir(out_dir) if isfile(join(out_dir+'/', f)) and search('.*?\.txt$', f)])
 
-	with open(out_dir + '/' + 'result.txt', 'w') as concat_file:
+	with open('Pipe_result.txt', 'w') as concat_file:
 		for sub_file in only_txt:
 			for line in open(sub_file):
 				line = line.strip()
@@ -172,10 +188,10 @@ if __name__ == '__main__':
 		#pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
 		pool_arg = [(args.in_fasta, args.out_dir, fasta) for fasta in only_fasta]		
 
-		lst = pool.map(pooled_func, pool_arg)
-		print(lst)
-		print(len(lst))
-		concat_res(args.out_dir)
+		replaced = pool.map(pooled_func, pool_arg)
+		replaced = {key: value for sub_dct in replaced for (key, value) in sub_dct.iteritems()}
+
+		concat_res(args.out_dir, replaced)
 
 	else:
 		make_ref(args.in_fasta, args.fasta_base)
