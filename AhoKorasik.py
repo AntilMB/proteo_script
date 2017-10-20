@@ -10,9 +10,6 @@ import re
 import sys
 from re import search
 import argparse
-from pickle import dump, load
-import cPickle as pickle
-import argparse
 
 
 def pooled_func(arg):
@@ -82,14 +79,15 @@ def pooled_func(arg):
 		seq = ""
 		out = dict()
 		for line in x:
+			line = line.strip()
 			if key is None and line.startswith(">"):
-				key = line.strip()[1:]
+				key = line[1:]
 			elif not(key is None) and line.startswith(">"):
 				out[key] = seq
 				seq = ""
-				key = line.strip()[1:]
+				key = line[1:]
 			else:
-				seq += line.strip()
+				seq += line.upper()
 		out[key] = seq
 		return(out)
 
@@ -129,8 +127,9 @@ def make_ref(file_in, file_out):
 		line = line.strip()
 		if line.startswith('>'):
 			count += 1
-
-		print(line, file=out)
+			print(line, file=out)
+		else:
+			print(line.upper(), file=out)
 
 	out.close()
 	f.close()
@@ -158,7 +157,7 @@ if __name__ == '__main__':
 	parser.add_argument('--task', dest='task', choices=['search', 'make_base'], default='search', help='Task type')
 	parser.add_argument('--nthreads', dest='nthreads', default=20, help="nthreads")
 	parser.add_argument('--fasta', dest='in_fasta', default=None, help='Input fasta')
-	parser.add_argument('--base_fasta', dest='raw_base', help='Base fasta')
+	#parser.add_argument('--base_fasta', dest='raw_base', help='Base fasta')
 	parser.add_argument('--base_dir', dest='fasta_base', help='parsed fasta', default='fasta_parsed')
 	parser.add_argument('--out', dest='out_dir', help='output', default='result')
 	args = parser.parse_args()
