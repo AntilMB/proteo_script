@@ -196,7 +196,8 @@ def search_task(args):
 	replaced = replaced[0]
 	concat_res(args.out_dir, replaced, tmp_dir)
 
-	shutil.rmtree(tmp_dir)
+	if not args.keep:
+		shutil.rmtree(tmp_dir)
 
 
 def create_base(args):
@@ -221,6 +222,7 @@ if __name__ == '__main__':
 	search_parser.add_argument('--fasta', dest='in_fasta', required=True, help='Input fasta for search')
 	search_parser.add_argument('--base_dir', dest='fasta_base', required=True, help='parsed fasta')
 	search_parser.add_argument('--out', dest='out_dir', required=True, help='output file')
+	search_parser.add_argument('--keep', dest='keep', action = 'store_true', default = False, help='output file')
 
 	args = parser.parse_args()
 	
