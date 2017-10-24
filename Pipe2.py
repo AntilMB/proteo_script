@@ -120,7 +120,7 @@ def pooled_func(arg):
 	return replaced
 
 
-def make_ref(file_in, file_out):
+def make_ref(file_in, file_out):	
 	if not os.path.exists(file_out):
 		os.makedirs(file_out)
 
@@ -170,34 +170,44 @@ def concat_res(out_dir, replaced):
 						print('\t'.join([true_pep] + splited[1:-1])+'\t'+single_header, file=concat_file)
 
 
+def search(args):
+	if not os.path.exists(args.out_dir):
+		os.makedirs(args.out_dir)
+
+	only_fasta = sorted([args.fasta_base + '/' + f for f in listdir(args.fasta_base) if isfile(join(args.fasta_base+'/', f)) and search('.*?\.fasta$', f)])
+	
+	pool = Pool(args.nthreads)
+	#pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
+	pool_arg = [(args.in_fasta, args.out_dir, fasta) for fasta in only_fasta]		
+	replaced = pool.map(pooled_func, pool_arg)
+	# говнокод из-за особенностей pool
+	replaced = replaced[0]
+	concat_res(args.out_dir, replaced)
+
+
+def create_base(args):
+	make_ref(args.in_fasta, args.fasta_base)
+
+
+
 if __name__ == '__main__':
 	freeze_support()
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--task', dest='task', choices=['search', 'make_base'], default='search', help='Task type')
-	parser.add_argument('--nthreads', dest='nthreads', default=20, help="nthreads")
-	parser.add_argument('--fasta', dest='in_fasta', default=None, help='Input fasta')
-	#parser.add_argument('--base_fasta', dest='raw_base', help='Base fasta')
-	parser.add_argument('--base_dir', dest='fasta_base', help='parsed fasta', default='fasta_parsed')
-	parser.add_argument('--out', dest='out_dir', help='output', default='result')
+	subparsers = parser.add_subparsers(dest='cmd')
+	subparsers.required = True
+
+	make_base_parser = subparsers.add_parser('create_base', help='Созадть базу для поиска')
+	make_base_parser.set_defaults(_action=create_base)
+	make_base_parser.add_argument('--fasta', dest='in_fasta', required=True, help='Input fasta for base')
+	make_base_parser.add_argument('--base_dir', dest='fasta_base', default=None, help='parsed fasta')
+
+	search_parser = subparsers.add_parser('search', help='Поиск по паттерну')
+	search_parser.set_defaults(_action=search)
+	search_parser.add_argument('--nthreads', dest='nthreads', default=20, help="nthreads")
+	search_parser.add_argument('--fasta', dest='in_fasta', required=True, help='Input fasta for search')
+	search_parser.add_argument('--base_dir', dest='fasta_base', required=True, help='parsed fasta')
+	search_parser.add_argument('--out', dest='out_dir', required=True, help='output')
+
 	args = parser.parse_args()
-
-	if args.task == 'search':
-		if not os.path.exists(args.out_dir):
-			os.makedirs(args.out_dir)
-	
-		only_fasta = sorted([args.fasta_base + '/' + f for f in listdir(args.fasta_base) if isfile(join(args.fasta_base+'/', f)) and search('.*?\.fasta$', f)])
-		
-		pool = Pool(args.nthreads)
-		#pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
-		pool_arg = [(args.in_fasta, args.out_dir, fasta) for fasta in only_fasta]		
-
-		replaced = pool.map(pooled_func, pool_arg)
-		# говнокод из-за особенностей pool
-		replaced = replaced[0]
-
-		concat_res(args.out_dir, replaced)
-
-	else:
-		make_ref(args.in_fasta, args.fasta_base)
-
+	#print(args)
