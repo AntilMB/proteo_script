@@ -10,9 +10,7 @@ import re
 import sys
 from re import search
 import argparse
-from pickle import dump, load
-import cPickle as pickle
-import argparse
+from collections import defaultdict
 
 
 def pooled_func(arg):
@@ -76,24 +74,41 @@ def pooled_func(arg):
 		#print(out)
 		print('\t'.join([patterns, str(pos), fasta, prot]), file=file)
 
+	
 	def read_fastaK(files):
 		x = open(files)
 		key = None
 		seq = ""
 		out = dict()
 		for line in x:
+			line = line.strip()
 			if key is None and line.startswith(">"):
-				key = line.strip()[1:]
+				key = line[1:]
 			elif not(key is None) and line.startswith(">"):
 				out[key] = seq
 				seq = ""
-				key = line.strip()[1:]
+				key = line[1:]
 			else:
-				seq += line.strip()
+				seq += line.upper()
 		out[key] = seq
 		return(out)
 
-	patterns = [value for _, value in read_fastaK(in_fasta).iteritems()]
+	
+	def replace_I_to_L(fasta):
+		replaced = defaultdict(list)
+		for key, value in fasta.iteritems():
+			fasta[key] = value.replace('I', 'L')
+			replaced[value.replace('I', 'L')].append(value)
+
+		return replaced, fasta
+
+
+
+
+	fasta_loaded = read_fastaK(in_fasta)
+	replaced, fasta_loaded = replace_I_to_L(fasta_loaded)
+
+	patterns = list(set([value for _, value in fasta_loaded.iteritems()]))
 	root = aho_create_statemachine(patterns)	
 
 	with open(out_dir + '/' + basename(fasta) + 'result.txt', 'w') as f:
@@ -102,7 +117,7 @@ def pooled_func(arg):
 			for key, value in fasta_ref.iteritems():
 				aho_find_all(value, root, on_occurence, f, key, basename(fasta))
 
-	return 1
+	return replaced
 
 
 def make_ref(file_in, file_out):
@@ -116,7 +131,6 @@ def make_ref(file_in, file_out):
 	key = True
 
 	for line in f:
-
 		if key:
 			 if line.startswith('>'):
 			 	key = False
@@ -130,26 +144,30 @@ def make_ref(file_in, file_out):
 		line = line.strip()
 		if line.startswith('>'):
 			count += 1
-
-		print(line, file=out)
+			print(line, file=out)
+		else:
+			print(line.upper().replace('I', 'L'), file=out)
 
 	out.close()
 	f.close()
 
 
-def concat_res(out_dir):
+
+def concat_res(out_dir, replaced):
 	only_txt = sorted([out_dir + '/' + f for f in listdir(out_dir) if isfile(join(out_dir+'/', f)) and search('.*?\.txt$', f)])
 
-	with open('result.txt', 'w') as concat_file:
+	with open('Pipe_result.txt', 'w') as concat_file:
 		for sub_file in only_txt:
 			for line in open(sub_file):
 				line = line.strip()
 
 				splited = line.split('\t')
 				dif_fasta_header = splited[-1].split('\x01')
+				print(splited)
 
 				for single_header in dif_fasta_header:
-					print('\t'.join(splited[:-1])+'\t'+single_header, file=concat_file)
+					for true_pep in replaced[splited[0]]:
+						print('\t'.join([true_pep] + splited[1:-1])+'\t'+single_header, file=concat_file)
 
 
 if __name__ == '__main__':
@@ -159,7 +177,7 @@ if __name__ == '__main__':
 	parser.add_argument('--task', dest='task', choices=['search', 'make_base'], default='search', help='Task type')
 	parser.add_argument('--nthreads', dest='nthreads', default=20, help="nthreads")
 	parser.add_argument('--fasta', dest='in_fasta', default=None, help='Input fasta')
-	parser.add_argument('--base_fasta', dest='raw_base', help='Base fasta')
+	#parser.add_argument('--base_fasta', dest='raw_base', help='Base fasta')
 	parser.add_argument('--base_dir', dest='fasta_base', help='parsed fasta', default='fasta_parsed')
 	parser.add_argument('--out', dest='out_dir', help='output', default='result')
 	args = parser.parse_args()
@@ -174,10 +192,11 @@ if __name__ == '__main__':
 		#pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
 		pool_arg = [(args.in_fasta, args.out_dir, fasta) for fasta in only_fasta]		
 
-		lst = pool.map(pooled_func, pool_arg)
-		print(lst)
-		print(len(lst))
-		concat_res(args.out_dir)
+		replaced = pool.map(pooled_func, pool_arg)
+		# говнокод из-за особенностей pool
+		replaced = replaced[0]
+
+		concat_res(args.out_dir, replaced)
 
 	else:
 		make_ref(args.in_fasta, args.fasta_base)
