@@ -13,6 +13,7 @@ import argparse
 from collections import defaultdict
 import shutil
 import hashlib, binascii
+import datetime
 
 
 def pooled_func(arg):
@@ -184,10 +185,10 @@ def search_task(args):
 	pool = Pool(args.nthreads)
 	#pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
 
-	dk = hashlib.pbkdf2_hmac('sha256', b'password', b'salt', 100000)
+	dk = hashlib.pbkdf2_hmac('sha256', datetime.datetime.now().isoformat(), b'kseniya_one_love_:D', 100000)
 	tmp_dir = binascii.hexlify(dk)
-	if os.path.exists(tmp_dir):
-		shutil.rmtree(tmp_dir)
+#	if os.path.exists(tmp_dir):
+#		shutil.rmtree(tmp_dir)
 	os.makedirs(tmp_dir)
 	
 	pool_arg = [(args.in_fasta, args.out_dir, fasta, tmp_dir) for fasta in only_fasta]		
