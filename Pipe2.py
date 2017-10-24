@@ -11,10 +11,12 @@ import sys
 from re import search
 import argparse
 from collections import defaultdict
+import shutil
+import hashlib, binascii
 
 
 def pooled_func(arg):
-	in_fasta, out_dir, fasta = arg
+	in_fasta, out_dir, fasta, tmp_dir = arg
 
 	class AhoNode:
 		def __init__(self):
@@ -111,7 +113,7 @@ def pooled_func(arg):
 	patterns = list(set([value for _, value in fasta_loaded.iteritems()]))
 	root = aho_create_statemachine(patterns)	
 
-	with open(out_dir + '/' + basename(fasta) + 'result.txt', 'w') as f:
+	with open(tmp_dir + '/' + basename(fasta) + 'result.txt', 'w') as f:
 			print(fasta)
 			fasta_ref = read_fastaK(fasta)
 			for key, value in fasta_ref.iteritems():
@@ -120,9 +122,16 @@ def pooled_func(arg):
 	return replaced
 
 
-def make_ref(file_in, file_out):	
+def make_ref(file_in, file_out):
+	if file_out is None:
+		file_out = basename(file_in) + '_base'
+
 	if not os.path.exists(file_out):
 		os.makedirs(file_out)
+	else:
+		shutil.rmtree(file_out)
+		os.makedirs(file_out)
+
 
 	f = open(file_in, 'r')	
 
@@ -153,41 +162,45 @@ def make_ref(file_in, file_out):
 
 
 
-def concat_res(out_dir, replaced):
-	only_txt = sorted([out_dir + '/' + f for f in listdir(out_dir) if isfile(join(out_dir+'/', f)) and search('.*?\.txt$', f)])
+def concat_res(out_dir, replaced, tmp_dir):
+	only_txt = sorted([tmp_dir + '/' + f for f in listdir(tmp_dir) if isfile(join(tmp_dir+'/', f)) and search('.*?\.txt$', f)])
 
-	with open('Pipe_result.txt', 'w') as concat_file:
+	with open(out_dir, 'w') as concat_file:
 		for sub_file in only_txt:
 			for line in open(sub_file):
 				line = line.strip()
 
 				splited = line.split('\t')
 				dif_fasta_header = splited[-1].split('\x01')
-				print(splited)
 
 				for single_header in dif_fasta_header:
 					for true_pep in replaced[splited[0]]:
 						print('\t'.join([true_pep] + splited[1:-1])+'\t'+single_header, file=concat_file)
 
 
-def search(args):
-	if not os.path.exists(args.out_dir):
-		os.makedirs(args.out_dir)
-
+def search_task(args):
 	only_fasta = sorted([args.fasta_base + '/' + f for f in listdir(args.fasta_base) if isfile(join(args.fasta_base+'/', f)) and search('.*?\.fasta$', f)])
 	
 	pool = Pool(args.nthreads)
 	#pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
-	pool_arg = [(args.in_fasta, args.out_dir, fasta) for fasta in only_fasta]		
+
+	dk = hashlib.pbkdf2_hmac('sha256', b'password', b'salt', 100000)
+	tmp_dir = binascii.hexlify(dk)
+	if os.path.exists(tmp_dir):
+		shutil.rmtree(tmp_dir)
+	os.makedirs(tmp_dir)
+	
+	pool_arg = [(args.in_fasta, args.out_dir, fasta, tmp_dir) for fasta in only_fasta]		
 	replaced = pool.map(pooled_func, pool_arg)
 	# говнокод из-за особенностей pool
 	replaced = replaced[0]
-	concat_res(args.out_dir, replaced)
+	concat_res(args.out_dir, replaced, tmp_dir)
+
+	shutil.rmtree(tmp_dir)
 
 
 def create_base(args):
 	make_ref(args.in_fasta, args.fasta_base)
-
 
 
 if __name__ == '__main__':
@@ -203,11 +216,13 @@ if __name__ == '__main__':
 	make_base_parser.add_argument('--base_dir', dest='fasta_base', default=None, help='parsed fasta')
 
 	search_parser = subparsers.add_parser('search', help='Поиск по паттерну')
-	search_parser.set_defaults(_action=search)
+	search_parser.set_defaults(_action=search_task)
 	search_parser.add_argument('--nthreads', dest='nthreads', default=20, help="nthreads")
 	search_parser.add_argument('--fasta', dest='in_fasta', required=True, help='Input fasta for search')
 	search_parser.add_argument('--base_dir', dest='fasta_base', required=True, help='parsed fasta')
-	search_parser.add_argument('--out', dest='out_dir', required=True, help='output')
+	search_parser.add_argument('--out', dest='out_dir', required=True, help='output file')
 
 	args = parser.parse_args()
-	#print(args)
+	
+	ret = args._action(args)
+	#print(ret)
