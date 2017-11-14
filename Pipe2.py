@@ -182,7 +182,7 @@ def concat_res(out_dir, replaced, tmp_dir):
 def search_task(args):
     only_fasta = sorted([args.fasta_base + '/' + f for f in listdir(args.fasta_base) if isfile(join(args.fasta_base+'/', f)) and search('.*?\.fasta$', f)])
     
-    pool = Pool(args.nthreads)
+    pool = Pool(int(args.nthreads))
     #pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
 
     dk = hashlib.pbkdf2_hmac('sha256', datetime.datetime.now().isoformat(), b'kseniya_one_love_:D', 100000)
