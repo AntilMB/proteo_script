@@ -183,12 +183,13 @@ def search_task(args):
     only_fasta = sorted([args.fasta_base + '/' + f for f in listdir(args.fasta_base) if isfile(join(args.fasta_base+'/', f)) and search('.*?\.fasta$', f)])
     
     pool = Pool(int(args.nthreads))
-    #pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
+    # pool_arg = ['$$'.join([args.in_fasta, args.out_dir, fasta]) for fasta in only_fasta]
 
-    dk = hashlib.pbkdf2_hmac('sha256', datetime.datetime.now().isoformat(), b'kseniya_one_love_:D', 100000)
-    tmp_dir = binascii.hexlify(dk)
-#   if os.path.exists(tmp_dir):
-#       shutil.rmtree(tmp_dir)
+    # dk = hashlib.pbkdf2_hmac('sha256', datetime.datetime.now().isoformat(), b'kseniya_one_love_:D', 100000)
+    # tmp_dir = binascii.hexlify(dk)
+    tmp_dir = 'tmp_dir_not_unique'
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
     os.makedirs(tmp_dir)
     
     pool_arg = [(args.in_fasta, args.out_dir, fasta, tmp_dir) for fasta in only_fasta]      
