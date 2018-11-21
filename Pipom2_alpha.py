@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import argparse
 import regex
+from __future__ import print_function
 
 def read_fastaK(files):
     x = open(files)
